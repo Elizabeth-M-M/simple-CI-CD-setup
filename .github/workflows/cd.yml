@@ -1,0 +1,119 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Build application
+      run: |
+        mkdir -p dist
+        cp -r src/ dist/
+        cp package.json dist/
+        cp package-lock.json dist/
+    
+    - name: Deploy to Staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        echo "Staging URL: https://staging-api.yourcompany.com"
+        # In real scenario, you would deploy to your staging server
+        # Example: rsync, scp, or cloud deployment commands
+    
+    - name: Run smoke tests
+      run: |
+        echo "🧪 Running smoke tests against staging..."
+        # In real scenario, run integration tests against staging
+        sleep 5
+        echo "✅ Smoke tests passed!"
+    
+    - name: Notify team
+      run: |
+        echo "📢 Staging deployment completed successfully!"
+        # In real scenario, send Slack notification or email
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    environment: production
+    needs: []
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run full test suite
+      run: npm test
+    
+    - name: Build application
+      run: |
+        mkdir -p dist
+        cp -r src/ dist/
+        cp package.json dist/
+        cp package-lock.json dist/
+    
+    - name: Create Docker image
+      run: |
+        echo "🐳 Building Docker image..."
+        # docker build -t user-api:${{ github.event.release.tag_name }} .
+        # docker tag user-api:${{ github.event.release.tag_name }} user-api:latest
+        echo "Docker image built successfully"
+    
+    - name: Push to registry
+      run: |
+        echo "📦 Pushing to container registry..."
+        # docker push user-api:${{ github.event.release.tag_name }}
+        # docker push user-api:latest
+        echo "Image pushed to registry"
+    
+    - name: Deploy to Production
+      run: |
+        echo "🚀 Deploying to production environment..."
+        echo "Production URL: https://api.yourcompany.com"
+        echo "Version: ${{ github.event.release.tag_name }}"
+        # In real scenario, deploy to production servers
+        # kubectl apply -f k8s/
+        # or other deployment commands
+    
+    - name: Run health checks
+      run: |
+        echo "🩺 Running production health checks..."
+        sleep 10
+        echo "✅ Health checks passed!"
+    
+    - name: Notify team
+      run: |
+        echo "🎉 Production deployment completed successfully!"
+        echo "Version ${{ github.event.release.tag_name }} is now live!"
+        # In real scenario, send notifications

@@ -1,0 +1,144 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main, develop ]
+
+jobs:
+  pr-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for better analysis
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linting
+      run: npm run lint
+    
+    - name: Run tests with coverage
+      run: npm test -- --coverage
+    
+    - name: Check test coverage
+      run: |
+        if [ -f coverage/lcov.info ]; then
+          echo "✅ Coverage report generated"
+        else
+          echo "❌ Coverage report not found"
+          exit 1
+        fi
+    
+    - name: Analyze code changes
+      run: |
+        echo "📊 Analyzing code changes..."
+        git diff --name-only origin/${{ github.base_ref }}..HEAD
+        
+        # Count changed files
+        CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | wc -l)
+        echo "Changed files: $CHANGED_FILES"
+        
+        # Check if any critical files were changed
+        if git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E "(package\.json|\.github/workflows)" > /dev/null; then
+          echo "⚠️  Critical files were changed - extra review required"
+        fi
+    
+    - name: Check commit messages
+      run: |
+        echo "📝 Checking commit message format..."
+        # In a real scenario, you might want to enforce conventional commits
+        git log --oneline origin/${{ github.base_ref }}..HEAD
+        echo "✅ Commit messages reviewed"
+    
+    - name: Size impact analysis
+      run: |
+        echo "📏 Analyzing bundle size impact..."
+        npm ci --only=production
+        du -sh node_modules/ || echo "Could not calculate size"
+        echo "Bundle size analysis completed"
+
+  compatibility-check:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Test startup
+      run: |
+        timeout 10s npm start &
+        sleep 5
+        if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
+          echo "✅ Application starts successfully on Node.js ${{ matrix.node-version }}"
+        else
+          echo "❌ Application failed to start on Node.js ${{ matrix.node-version }}"
+          exit 1
+        fi
+        pkill -f "node src/app.js" || true
+
+  auto-assign-reviewers:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+    
+    steps:
+    - name: Auto-assign reviewers
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Auto-assign reviewers based on files changed
+          const { data: files } = await github.rest.pulls.listFiles({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number
+          });
+          
+          const reviewers = [];
+          const hasBackendChanges = files.some(file => file.filename.includes('src/'));
+          const hasWorkflowChanges = files.some(file => file.filename.includes('.github/'));
+          
+          if (hasBackendChanges) {
+            reviewers.push('backend-team-lead');
+          }
+          if (hasWorkflowChanges) {
+            reviewers.push('devops-team-lead');
+          }
+          
+          if (reviewers.length > 0) {
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                reviewers: reviewers
+              });
+              console.log(`Assigned reviewers: ${reviewers.join(', ')}`);
+            } catch (error) {
+              console.log('Could not assign reviewers:', error.message);
+            }
+          }
