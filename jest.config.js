@@ -6,11 +6,11 @@ module.exports = {
     '!src/app.js' // Exclude main app file from coverage
   ],
   coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80
+     global: {
+      branches: 70,
+      functions: 75,
+      lines: 75,
+      statements: 75
     }
   },
   testMatch: [

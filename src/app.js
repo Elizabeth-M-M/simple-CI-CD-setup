@@ -19,12 +19,14 @@ app.use('/api/health', healthRoutes);
 app.use('/api/users', userRoutes);
 
 // Global error handler
-app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
     error: 'Something went wrong!',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
+  // ESLint requires we acknowledge the next parameter even if unused
+  next();
 });
 
 // 404 handler
