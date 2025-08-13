@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 require('dotenv').config();
 
-const userRoutes = require('./routes/users');
+const userRoutes = require('./routes/user');
 const healthRoutes = require('./routes/health');
 
 const app = express();

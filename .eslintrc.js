@@ -12,7 +12,7 @@ module.exports = {
     sourceType: 'module'
   },
   rules: {
-    'no-console': 'warn',
+    'no-console': 'off', // Allow console statements in Node.js server
     'no-unused-vars': 'error',
     'no-var': 'error',
     'prefer-const': 'error',
