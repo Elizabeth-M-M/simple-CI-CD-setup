@@ -19,7 +19,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/users', userRoutes);
 
 // Global error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   console.error(err.stack);
   res.status(500).json({
     error: 'Something went wrong!',
